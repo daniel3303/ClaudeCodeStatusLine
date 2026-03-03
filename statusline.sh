@@ -90,12 +90,14 @@ pct_remain=$(( 100 - pct_used ))
 used_comma=$(format_commas $current)
 remain_comma=$(format_commas $(( size - current )))
 
-# Check thinking status
-thinking_on=false
+# Check reasoning effort
 settings_path="$HOME/.claude/settings.json"
-if [ -f "$settings_path" ]; then
-    thinking_val=$(jq -r '.alwaysThinkingEnabled // false' "$settings_path" 2>/dev/null)
-    [ "$thinking_val" = "true" ] && thinking_on=true
+effort_level="high"
+if [ -n "$CLAUDE_CODE_EFFORT_LEVEL" ]; then
+    effort_level="$CLAUDE_CODE_EFFORT_LEVEL"
+elif [ -f "$settings_path" ]; then
+    effort_val=$(jq -r '.effortLevel // empty' "$settings_path" 2>/dev/null)
+    [ -n "$effort_val" ] && effort_level="$effort_val"
 fi
 
 # ===== Build single-line output =====
@@ -121,12 +123,12 @@ out+="${green}${pct_used}%${reset} ${dim}used${reset}"
 out+=" ${dim}|${reset} "
 out+="${cyan}${pct_remain}%${reset} ${dim}remain${reset}"
 out+=" ${dim}|${reset} "
-out+="thinking: "
-if $thinking_on; then
-    out+="${orange}On${reset}"
-else
-    out+="${dim}Off${reset}"
-fi
+out+="effort: "
+case "$effort_level" in
+    low)    out+="${dim}low${reset}" ;;
+    medium) out+="${orange}med${reset}" ;;
+    *)      out+="${green}high${reset}" ;;
+esac
 
 # ===== Cross-platform OAuth token resolution (from statusline.sh) =====
 # Tries credential sources in order: env var → macOS Keychain → Linux creds file → GNOME Keyring
