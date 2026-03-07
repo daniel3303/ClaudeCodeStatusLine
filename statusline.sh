@@ -171,19 +171,22 @@ mkdir -p /tmp/claude
 needs_refresh=true
 usage_data=""
 
-# Check cache
+# Check cache — shared across all Claude Code instances to avoid rate limits
 if [ -f "$cache_file" ]; then
     cache_mtime=$(stat -c %Y "$cache_file" 2>/dev/null || stat -f %m "$cache_file" 2>/dev/null)
     now=$(date +%s)
     cache_age=$(( now - cache_mtime ))
     if [ "$cache_age" -lt "$cache_max_age" ]; then
         needs_refresh=false
-        usage_data=$(cat "$cache_file" 2>/dev/null)
     fi
+    usage_data=$(cat "$cache_file" 2>/dev/null)
 fi
 
 # Fetch fresh data if cache is stale
 if $needs_refresh; then
+    # Touch cache immediately so other instances don't also fetch
+    touch "$cache_file" 2>/dev/null
+
     token=$(get_oauth_token)
     if [ -n "$token" ] && [ "$token" != "null" ]; then
         response=$(curl -s --max-time 10 \
@@ -193,14 +196,11 @@ if $needs_refresh; then
             -H "anthropic-beta: oauth-2025-04-20" \
             -H "User-Agent: claude-code/2.1.34" \
             "https://api.anthropic.com/api/oauth/usage" 2>/dev/null)
-        if [ -n "$response" ] && echo "$response" | jq . >/dev/null 2>&1; then
+        # Only cache valid usage responses (not error/rate-limit JSON)
+        if [ -n "$response" ] && echo "$response" | jq -e '.five_hour' >/dev/null 2>&1; then
             usage_data="$response"
             echo "$response" > "$cache_file"
         fi
-    fi
-    # Fall back to stale cache
-    if [ -z "$usage_data" ] && [ -f "$cache_file" ]; then
-        usage_data=$(cat "$cache_file" 2>/dev/null)
     fi
 fi
 
@@ -277,7 +277,7 @@ format_reset_time() {
 
 sep=" ${dim}|${reset} "
 
-if [ -n "$usage_data" ] && echo "$usage_data" | jq -e . >/dev/null 2>&1; then
+if [ -n "$usage_data" ] && echo "$usage_data" | jq -e '.five_hour' >/dev/null 2>&1; then
     # ---- 5-hour (current) ----
     five_hour_pct=$(echo "$usage_data" | jq -r '.five_hour.utilization // 0' | awk '{printf "%.0f", $1}')
     five_hour_reset_iso=$(echo "$usage_data" | jq -r '.five_hour.resets_at // empty')
@@ -310,6 +310,10 @@ if [ -n "$usage_data" ] && echo "$usage_data" | jq -e . >/dev/null 2>&1; then
             out+="${sep}${white}extra${reset} ${green}enabled${reset}"
         fi
     fi
+else
+    # No valid usage data — show placeholders
+    out+="${sep}${white}5h${reset} ${dim}-${reset}"
+    out+="${sep}${white}7d${reset} ${dim}-${reset}"
 fi
 
 # Output single line
