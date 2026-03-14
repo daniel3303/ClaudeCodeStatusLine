@@ -127,10 +127,16 @@ get_oauth_token() {
         return 0
     fi
 
-    # 2. macOS Keychain
+    # 2. macOS Keychain (Claude Code appends a SHA256 hash of CLAUDE_CONFIG_DIR to the service name)
     if command -v security >/dev/null 2>&1; then
+        local keychain_svc="Claude Code-credentials"
+        if [ -n "$CLAUDE_CONFIG_DIR" ]; then
+            local dir_hash
+            dir_hash=$(echo -n "$CLAUDE_CONFIG_DIR" | shasum -a 256 | cut -c1-8)
+            keychain_svc="Claude Code-credentials-${dir_hash}"
+        fi
         local blob
-        blob=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null)
+        blob=$(security find-generic-password -s "$keychain_svc" -w 2>/dev/null)
         if [ -n "$blob" ]; then
             token=$(echo "$blob" | jq -r '.claudeAiOauth.accessToken // empty' 2>/dev/null)
             if [ -n "$token" ] && [ "$token" != "null" ]; then
@@ -167,7 +173,7 @@ get_oauth_token() {
 }
 
 # ===== LINE 2 & 3: Usage limits with progress bars (cached) =====
-config_dir_hash=$(echo -n "$config_dir" | md5sum | cut -c1-8)
+config_dir_hash=$(echo -n "$config_dir" | shasum -a 256 | cut -c1-8)
 cache_file="/tmp/claude/statusline-usage-cache-${config_dir_hash}.json"
 cache_max_age=60  # seconds between API calls
 mkdir -p /tmp/claude
@@ -188,9 +194,6 @@ fi
 
 # Fetch fresh data if cache is stale
 if $needs_refresh; then
-    # Touch cache immediately so other instances don't also fetch
-    touch "$cache_file" 2>/dev/null
-
     token=$(get_oauth_token)
     if [ -n "$token" ] && [ "$token" != "null" ]; then
         response=$(curl -s --max-time 10 \
