@@ -50,6 +50,9 @@ usage_color() {
     fi
 }
 
+# Resolve config directory: CLAUDE_CONFIG_DIR (set by alias) or default ~/.claude
+claude_config_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+
 # Return 0 (true) if $1 > $2 using semantic versioning
 version_gt() {
     local a="${1#v}" b="${2#v}"
@@ -65,7 +68,6 @@ version_gt() {
     [ "$a3" -gt "$b3" ] 2>/dev/null && return 0
     return 1
 }
-
 # ===== Extract data from JSON =====
 model_name=$(echo "$input" | jq -r '.model.display_name // "Claude"')
 
@@ -91,9 +93,6 @@ pct_remain=$(( 100 - pct_used ))
 
 used_comma=$(format_commas $current)
 remain_comma=$(format_commas $(( size - current )))
-
-# Config directory (respects CLAUDE_CONFIG_DIR override)
-claude_config_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 
 # Check reasoning effort
 settings_path="$claude_config_dir/settings.json"
@@ -145,10 +144,16 @@ get_oauth_token() {
         return 0
     fi
 
-    # 2. macOS Keychain
+    # 2. macOS Keychain (Claude Code appends a SHA256 hash of CLAUDE_CONFIG_DIR to the service name)
     if command -v security >/dev/null 2>&1; then
+        local keychain_svc="Claude Code-credentials"
+        if [ -n "$CLAUDE_CONFIG_DIR" ]; then
+            local dir_hash
+            dir_hash=$(echo -n "$CLAUDE_CONFIG_DIR" | shasum -a 256 | cut -c1-8)
+            keychain_svc="Claude Code-credentials-${dir_hash}"
+        fi
         local blob
-        blob=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null)
+        blob=$(security find-generic-password -s "$keychain_svc" -w 2>/dev/null)
         if [ -n "$blob" ]; then
             token=$(echo "$blob" | jq -r '.claudeAiOauth.accessToken // empty' 2>/dev/null)
             if [ -n "$token" ] && [ "$token" != "null" ]; then
@@ -185,7 +190,9 @@ get_oauth_token() {
 }
 
 # ===== LINE 2 & 3: Usage limits with progress bars (cached) =====
-cache_file="/tmp/claude/statusline-usage-cache.json"
+claude_config_dir_hash=$(echo -n "$claude_config_dir" | shasum -a 256 2>/dev/null || echo -n "$claude_config_dir" | sha256sum 2>/dev/null)
+claude_config_dir_hash=$(echo "$claude_config_dir_hash" | cut -c1-8)
+cache_file="/tmp/claude/statusline-usage-cache-${claude_config_dir_hash}.json"
 cache_max_age=60  # seconds between API calls
 mkdir -p /tmp/claude
 
@@ -205,9 +212,7 @@ fi
 
 # Fetch fresh data if cache is stale
 if $needs_refresh; then
-    # Touch cache immediately so other instances don't also fetch
-    touch "$cache_file" 2>/dev/null
-
+    touch "$cache_file"  # stampede lock: prevent parallel panes from fetching simultaneously
     token=$(get_oauth_token)
     if [ -n "$token" ] && [ "$token" != "null" ]; then
         response=$(curl -s --max-time 10 \
