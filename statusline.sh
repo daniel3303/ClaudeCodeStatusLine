@@ -200,7 +200,7 @@ needs_refresh=true
 usage_data=""
 
 # Check cache — shared across all Claude Code instances to avoid rate limits
-if [ -f "$cache_file" ]; then
+if [ -f "$cache_file" ] && [ -s "$cache_file" ]; then
     cache_mtime=$(stat -c %Y "$cache_file" 2>/dev/null || stat -f %m "$cache_file" 2>/dev/null)
     now=$(date +%s)
     cache_age=$(( now - cache_mtime ))
