@@ -75,10 +75,13 @@ pct_remain=$(( 100 - pct_used ))
 used_comma=$(format_commas $current)
 remain_comma=$(format_commas $(( size - current )))
 
-# Check reasoning effort
+# Check reasoning effort — priority: JSON input > env var > settings.json > default
 settings_path="$HOME/.claude/settings.json"
 effort_level="medium"
-if [ -n "$CLAUDE_CODE_EFFORT_LEVEL" ]; then
+json_effort=$(echo "$input" | jq -r '.effort_level // .effort // .effortLevel // empty' 2>/dev/null)
+if [ -n "$json_effort" ]; then
+    effort_level="$json_effort"
+elif [ -n "$CLAUDE_CODE_EFFORT_LEVEL" ]; then
     effort_level="$CLAUDE_CODE_EFFORT_LEVEL"
 elif [ -f "$settings_path" ]; then
     effort_val=$(jq -r '.effortLevel // empty' "$settings_path" 2>/dev/null)

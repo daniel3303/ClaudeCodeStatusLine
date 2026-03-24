@@ -67,9 +67,17 @@ $pctRemain = 100 - $pctUsed
 $usedComma   = Format-Commas $current
 $remainComma = Format-Commas ($size - $current)
 
-# Check reasoning effort
+# Check reasoning effort — priority: JSON input > env var > settings.json > default
 $effortLevel = "medium"
-if ($env:CLAUDE_CODE_EFFORT_LEVEL) {
+$jsonEffort = $null
+try {
+    $jsonEffort = $data.effort_level
+    if (-not $jsonEffort) { $jsonEffort = $data.effort }
+    if (-not $jsonEffort) { $jsonEffort = $data.effortLevel }
+} catch {}
+if ($jsonEffort) {
+    $effortLevel = $jsonEffort
+} elseif ($env:CLAUDE_CODE_EFFORT_LEVEL) {
     $effortLevel = $env:CLAUDE_CODE_EFFORT_LEVEL
 } else {
     $settingsPath = Join-Path $env:USERPROFILE ".claude\settings.json"
