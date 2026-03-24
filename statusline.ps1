@@ -119,9 +119,11 @@ $out += "${orange}${usedTokens}/${totalTokens}${reset} ${dim}(${reset}${green}${
 $out += " ${dim}|${reset} "
 $out += "effort: "
 switch ($effortLevel) {
-    "low"    { $out += "${dim}low${reset}" }
+    "low"    { $out += "${dim}${effortLevel}${reset}" }
     "medium" { $out += "${orange}med${reset}" }
-    default  { $out += "${green}high${reset}" }
+    "high"   { $out += "${green}${effortLevel}${reset}" }
+    "max"    { $out += "${blue}${effortLevel}${reset}" }
+    default  { $out += "${green}${effortLevel}${reset}" }
 }
 
 # ===== OAuth token resolution =====
