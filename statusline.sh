@@ -189,7 +189,20 @@ get_oauth_token() {
     echo ""
 }
 
-# ===== LINE 2 & 3: Usage limits with progress bars (cached) =====
+# ===== LINE 2 & 3: Usage limits with progress bars =====
+# First, try to use rate_limits data provided directly by Claude Code in the JSON input.
+# This is the most reliable source — no OAuth token or API call required.
+builtin_five_hour_pct=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty')
+builtin_five_hour_reset=$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // empty')
+builtin_seven_day_pct=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty')
+builtin_seven_day_reset=$(echo "$input" | jq -r '.rate_limits.seven_day.resets_at // empty')
+
+use_builtin=false
+if [ -n "$builtin_five_hour_pct" ] || [ -n "$builtin_seven_day_pct" ]; then
+    use_builtin=true
+fi
+
+# Fall back to cached API call only when Claude Code didn't supply rate_limits data
 claude_config_dir_hash=$(echo -n "$claude_config_dir" | shasum -a 256 2>/dev/null || echo -n "$claude_config_dir" | sha256sum 2>/dev/null)
 claude_config_dir_hash=$(echo "$claude_config_dir_hash" | cut -c1-8)
 cache_file="/tmp/claude/statusline-usage-cache-${claude_config_dir_hash}.json"
@@ -199,33 +212,35 @@ mkdir -p /tmp/claude
 needs_refresh=true
 usage_data=""
 
-# Check cache — shared across all Claude Code instances to avoid rate limits
-if [ -f "$cache_file" ] && [ -s "$cache_file" ]; then
-    cache_mtime=$(stat -c %Y "$cache_file" 2>/dev/null || stat -f %m "$cache_file" 2>/dev/null)
-    now=$(date +%s)
-    cache_age=$(( now - cache_mtime ))
-    if [ "$cache_age" -lt "$cache_max_age" ]; then
-        needs_refresh=false
+if ! $use_builtin; then
+    # Check cache — shared across all Claude Code instances to avoid rate limits
+    if [ -f "$cache_file" ] && [ -s "$cache_file" ]; then
+        cache_mtime=$(stat -c %Y "$cache_file" 2>/dev/null || stat -f %m "$cache_file" 2>/dev/null)
+        now=$(date +%s)
+        cache_age=$(( now - cache_mtime ))
+        if [ "$cache_age" -lt "$cache_max_age" ]; then
+            needs_refresh=false
+        fi
+        usage_data=$(cat "$cache_file" 2>/dev/null)
     fi
-    usage_data=$(cat "$cache_file" 2>/dev/null)
-fi
 
-# Fetch fresh data if cache is stale
-if $needs_refresh; then
-    touch "$cache_file"  # stampede lock: prevent parallel panes from fetching simultaneously
-    token=$(get_oauth_token)
-    if [ -n "$token" ] && [ "$token" != "null" ]; then
-        response=$(curl -s --max-time 10 \
-            -H "Accept: application/json" \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $token" \
-            -H "anthropic-beta: oauth-2025-04-20" \
-            -H "User-Agent: claude-code/2.1.34" \
-            "https://api.anthropic.com/api/oauth/usage" 2>/dev/null)
-        # Only cache valid usage responses (not error/rate-limit JSON)
-        if [ -n "$response" ] && echo "$response" | jq -e '.five_hour' >/dev/null 2>&1; then
-            usage_data="$response"
-            echo "$response" > "$cache_file"
+    # Fetch fresh data if cache is stale
+    if $needs_refresh; then
+        touch "$cache_file"  # stampede lock: prevent parallel panes from fetching simultaneously
+        token=$(get_oauth_token)
+        if [ -n "$token" ] && [ "$token" != "null" ]; then
+            response=$(curl -s --max-time 10 \
+                -H "Accept: application/json" \
+                -H "Content-Type: application/json" \
+                -H "Authorization: Bearer $token" \
+                -H "anthropic-beta: oauth-2025-04-20" \
+                -H "User-Agent: claude-code/2.1.34" \
+                "https://api.anthropic.com/api/oauth/usage" 2>/dev/null)
+            # Only cache valid usage responses (not error/rate-limit JSON)
+            if [ -n "$response" ] && echo "$response" | jq -e '.five_hour' >/dev/null 2>&1; then
+                usage_data="$response"
+                echo "$response" > "$cache_file"
+            fi
         fi
     fi
 fi
@@ -303,7 +318,30 @@ format_reset_time() {
 
 sep=" ${dim}|${reset} "
 
-if [ -n "$usage_data" ] && echo "$usage_data" | jq -e '.five_hour' >/dev/null 2>&1; then
+if $use_builtin; then
+    # ---- Use rate_limits data provided directly by Claude Code in JSON input ----
+    # resets_at values are Unix epoch integers in this source
+    if [ -n "$builtin_five_hour_pct" ]; then
+        five_hour_pct=$(printf "%.0f" "$builtin_five_hour_pct")
+        five_hour_color=$(usage_color "$five_hour_pct")
+        out+="${sep}${white}5h${reset} ${five_hour_color}${five_hour_pct}%${reset}"
+        if [ -n "$builtin_five_hour_reset" ] && [ "$builtin_five_hour_reset" != "null" ]; then
+            five_hour_reset=$(date -j -r "$builtin_five_hour_reset" +"%H:%M" 2>/dev/null || date -d "@$builtin_five_hour_reset" +"%H:%M" 2>/dev/null)
+            [ -n "$five_hour_reset" ] && out+=" ${dim}@${five_hour_reset}${reset}"
+        fi
+    fi
+
+    if [ -n "$builtin_seven_day_pct" ]; then
+        seven_day_pct=$(printf "%.0f" "$builtin_seven_day_pct")
+        seven_day_color=$(usage_color "$seven_day_pct")
+        out+="${sep}${white}7d${reset} ${seven_day_color}${seven_day_pct}%${reset}"
+        if [ -n "$builtin_seven_day_reset" ] && [ "$builtin_seven_day_reset" != "null" ]; then
+            seven_day_reset=$(date -j -r "$builtin_seven_day_reset" +"%b %-d, %H:%M" 2>/dev/null || date -d "@$builtin_seven_day_reset" +"%b %-d, %H:%M" 2>/dev/null)
+            [ -n "$seven_day_reset" ] && out+=" ${dim}@${seven_day_reset}${reset}"
+        fi
+    fi
+elif [ -n "$usage_data" ] && echo "$usage_data" | jq -e '.five_hour' >/dev/null 2>&1; then
+    # ---- Fall back: API-fetched usage data ----
     # ---- 5-hour (current) ----
     five_hour_pct=$(echo "$usage_data" | jq -r '.five_hour.utilization // 0' | awk '{printf "%.0f", $1}')
     five_hour_reset_iso=$(echo "$usage_data" | jq -r '.five_hour.resets_at // empty')
