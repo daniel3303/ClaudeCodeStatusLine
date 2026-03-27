@@ -1,4 +1,4 @@
-$VERSION = "1.1.0"
+$VERSION = "1.2.0"
 # Single line: Model | tokens | %used | %remain | think | 5h bar @reset | 7d bar @reset | extra
 
 # Read input from stdin
