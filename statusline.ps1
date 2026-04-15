@@ -1,6 +1,6 @@
 # Source: https://github.com/daniel3303/ClaudeCodeStatusLine
 
-$VERSION = "1.2.0"
+$VERSION = "1.2.1"
 # Single line: Model | tokens | %used | %remain | think | 5h bar @reset | 7d bar @reset | extra
 
 # Read input from stdin
@@ -193,7 +193,27 @@ $builtinSevenDayReset = $data.rate_limits.seven_day.resets_at
 
 $useBuiltin = ($null -ne $builtinFiveHourPct) -or ($null -ne $builtinSevenDayPct)
 
-# Fall back to cached API call only when Claude Code didn't supply rate_limits data
+# When builtin values are all zero AND reset timestamps are missing, it likely indicates
+# an API failure on Claude's side — fall through to cached data instead of displaying
+# misleading 0%. Genuine zero responses (after a billing reset) still include valid
+# resets_at timestamps, so we trust those.
+$effectiveBuiltin = $false
+if ($useBuiltin) {
+    # Trust builtin if any percentage is non-zero
+    if (($null -ne $builtinFiveHourPct -and [math]::Floor([double]$builtinFiveHourPct) -ne 0) -or
+        ($null -ne $builtinSevenDayPct -and [math]::Floor([double]$builtinSevenDayPct) -ne 0)) {
+        $effectiveBuiltin = $true
+    }
+    # Also trust if reset timestamps are present — genuine zero responses include valid reset times
+    if (-not $effectiveBuiltin) {
+        if (($null -ne $builtinFiveHourReset -and "$builtinFiveHourReset" -ne "null" -and "$builtinFiveHourReset" -ne "0") -or
+            ($null -ne $builtinSevenDayReset -and "$builtinSevenDayReset" -ne "null" -and "$builtinSevenDayReset" -ne "0")) {
+            $effectiveBuiltin = $true
+        }
+    }
+}
+
+# Cache setup — used as primary source for API path, and as fallback when builtin reports zero
 $cacheDir = Join-Path $env:TEMP "claude"
 $cacheFile = Join-Path $cacheDir "statusline-usage-cache.json"
 $cacheMaxAge = 60  # seconds between API calls
@@ -203,18 +223,18 @@ if (-not (Test-Path $cacheDir)) { New-Item -ItemType Directory -Path $cacheDir -
 $needsRefresh = $true
 $usageData = $null
 
-if (-not $useBuiltin) {
-    # Check cache — shared across all Claude Code instances to avoid rate limits
-    if (Test-Path $cacheFile) {
-        $cacheMtime = (Get-Item $cacheFile).LastWriteTime
-        $cacheAge = ((Get-Date) - $cacheMtime).TotalSeconds
-        if ($cacheAge -lt $cacheMaxAge) {
-            $needsRefresh = $false
-            $usageData = Get-Content $cacheFile -Raw
-        }
+# Always load cache — available as fallback regardless of data source
+if (Test-Path $cacheFile) {
+    $cacheMtime = (Get-Item $cacheFile).LastWriteTime
+    $cacheAge = ((Get-Date) - $cacheMtime).TotalSeconds
+    if ($cacheAge -lt $cacheMaxAge) {
+        $needsRefresh = $false
     }
+    $usageData = Get-Content $cacheFile -Raw
+}
 
-    # Fetch fresh data if cache is stale
+if (-not $effectiveBuiltin) {
+    # Fetch fresh data if cache is stale (shared across all Claude Code instances to avoid rate limits)
     if ($needsRefresh) {
         # Touch cache immediately (stampede lock: prevent parallel instances from fetching simultaneously)
         if (Test-Path $cacheFile) {
@@ -273,7 +293,7 @@ function Format-EpochResetTime([object]$epoch, [string]$style) {
 
 $sep = " ${dim}|${reset} "
 
-if ($useBuiltin) {
+if ($effectiveBuiltin) {
     # ---- Use rate_limits data provided directly by Claude Code in JSON input ----
     # resets_at values are Unix epoch integers in this source
     if ($null -ne $builtinFiveHourPct) {
@@ -291,6 +311,27 @@ if ($useBuiltin) {
         $sevenDayReset = Format-EpochResetTime $builtinSevenDayReset "datetime"
         if ($sevenDayReset) { $out += " ${dim}@${sevenDayReset}${reset}" }
     }
+
+    # Cache builtin values so they're available as fallback when API is unavailable.
+    # Convert epoch resets_at to ISO 8601 for compatibility with the API-format cache parser.
+    # Use invariant culture to avoid locale-dependent decimal separators in JSON.
+    $inv = [System.Globalization.CultureInfo]::InvariantCulture
+    $fhVal = if ($builtinFiveHourPct) { ([double]$builtinFiveHourPct).ToString($inv) } else { "0" }
+    $sdVal = if ($builtinSevenDayPct) { ([double]$builtinSevenDayPct).ToString($inv) } else { "0" }
+    $fhResetJson = "null"
+    if ($null -ne $builtinFiveHourReset -and "$builtinFiveHourReset" -ne "null" -and "$builtinFiveHourReset" -ne "0") {
+        try {
+            $fhResetJson = '"' + [DateTimeOffset]::FromUnixTimeSeconds([long]$builtinFiveHourReset).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'") + '"'
+        } catch {}
+    }
+    $sdResetJson = "null"
+    if ($null -ne $builtinSevenDayReset -and "$builtinSevenDayReset" -ne "null" -and "$builtinSevenDayReset" -ne "0") {
+        try {
+            $sdResetJson = '"' + [DateTimeOffset]::FromUnixTimeSeconds([long]$builtinSevenDayReset).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'") + '"'
+        } catch {}
+    }
+    $fallbackJson = "{`"five_hour`":{`"utilization`":$fhVal,`"resets_at`":$fhResetJson},`"seven_day`":{`"utilization`":$sdVal,`"resets_at`":$sdResetJson}}"
+    $fallbackJson | Set-Content $cacheFile -Force
 } elseif ($usageData) {
     # ---- Fall back: API-fetched usage data ----
     try {
