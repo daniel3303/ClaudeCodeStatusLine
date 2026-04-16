@@ -19,6 +19,7 @@ green='\033[38;2;0;160;0m'
 cyan='\033[38;2;46;149;153m'
 red='\033[38;2;255;85;85m'
 yellow='\033[38;2;230;200;0m'
+purple='\033[38;2;167;139;250m'
 white='\033[38;2;220;220;220m'
 dim='\033[2m'
 reset='\033[0m'
@@ -131,6 +132,8 @@ out+="effort: "
 case "$effort_level" in
     low)    out+="${dim}${effort_level}${reset}" ;;
     medium) out+="${orange}med${reset}" ;;
+    high)   out+="${green}${effort_level}${reset}" ;;
+    xhigh)  out+="${purple}${effort_level}${reset}" ;;
     max)    out+="${red}${effort_level}${reset}" ;;
     *)      out+="${green}${effort_level}${reset}" ;;
 esac

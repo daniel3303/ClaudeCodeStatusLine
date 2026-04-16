@@ -21,6 +21,7 @@ $green  = "${esc}[38;2;0;160;0m"
 $cyan   = "${esc}[38;2;46;149;153m"
 $red    = "${esc}[38;2;255;85;85m"
 $yellow = "${esc}[38;2;230;200;0m"
+$purple = "${esc}[38;2;167;139;250m"
 $white  = "${esc}[38;2;220;220;220m"
 $dim    = "${esc}[2m"
 $reset  = "${esc}[0m"
@@ -151,6 +152,8 @@ $out += "effort: "
 switch ($effortLevel) {
     "low"    { $out += "${dim}${effortLevel}${reset}" }
     "medium" { $out += "${orange}med${reset}" }
+    "high"   { $out += "${green}${effortLevel}${reset}" }
+    "xhigh"  { $out += "${purple}${effortLevel}${reset}" }
     "max"    { $out += "${red}${effortLevel}${reset}" }
     default  { $out += "${green}${effortLevel}${reset}" }
 }
