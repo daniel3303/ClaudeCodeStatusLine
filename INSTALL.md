@@ -39,29 +39,31 @@ Add (or update) the `statusLine` key in `~/.claude/settings.json` (Unix) or `%US
 }
 ```
 
-**Windows (PowerShell / CMD)**
+**Windows**
 
 ```json
 {
   "statusLine": {
     "type": "command",
-    "command": "powershell -NoProfile -File \"%USERPROFILE%\\.claude\\statusline\\statusline.ps1\""
+    "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File ~/.claude/statusline/statusline.ps1"
   }
 }
 ```
 
-**Windows (Git Bash / WSL bash shells)**
+If PowerShell 7+ (`pwsh`) is not installed, fall back to Windows PowerShell 5.1:
 
 ```json
 {
   "statusLine": {
     "type": "command",
-    "command": "powershell -NoProfile -File \"$USERPROFILE\\.claude\\statusline\\statusline.ps1\""
+    "command": "powershell -NoProfile -ExecutionPolicy Bypass -File ~/.claude/statusline/statusline.ps1"
   }
 }
 ```
 
-> `%VAR%` expands only in CMD/PowerShell; `$VAR` expands only in bash shells. Pick the one that matches the shell Claude Code launches the command in.
+> `-ExecutionPolicy Bypass` is **process-scoped** — it does not change your machine's PowerShell policy. Without it, a default `Restricted` or `AllSigned` policy (common on locked-down corporate machines) silently rejects the unsigned script and Claude Code shows no status line with no error.
+>
+> `~` is expanded by Claude Code v2.1.47+ on both Unix and Windows. On older Claude Code versions, replace `~/.claude/statusline/statusline.ps1` with `%USERPROFILE%\.claude\statusline\statusline.ps1` (CMD / PowerShell) or `$USERPROFILE\.claude\statusline\statusline.ps1` (Git Bash / WSL) — `%VAR%` expands only in CMD/PowerShell, `$VAR` only in bash shells.
 
 ## 4. Restart Claude Code
 
