@@ -1,6 +1,6 @@
 # Source: https://github.com/daniel3303/ClaudeCodeStatusLine
 
-$VERSION = "1.3.0"
+$VERSION = "1.4.0"
 # Single line: Model | tokens | %used | %remain | think | 5h bar @reset | 7d bar @reset | extra
 
 # Read input from stdin

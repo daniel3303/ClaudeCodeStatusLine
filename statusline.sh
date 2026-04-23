@@ -3,7 +3,7 @@
 # Single line: Model | tokens | %used | %remain | think | 5h bar @reset | 7d bar @reset | extra
 
 set -f  # disable globbing
-VERSION="1.3.0"
+VERSION="1.4.0"
 
 input=$(cat)
 
