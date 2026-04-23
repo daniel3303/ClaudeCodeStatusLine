@@ -37,7 +37,7 @@ Restart Claude Code after Claude saves the configuration.
 
 When the status line shows a new release is available, ask Claude:
 
-> Update my status bar.
+> Find my installed status bar and update it.
 
 Or update it yourself:
 

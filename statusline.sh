@@ -480,7 +480,7 @@ update_line=""
 if [ -n "$version_data" ]; then
     latest_tag=$(echo "$version_data" | jq -r '.tag_name // empty')
     if [ -n "$latest_tag" ] && version_gt "$latest_tag" "$VERSION"; then
-        update_line="\n${dim}Update available: ${latest_tag} → https://github.com/daniel3303/ClaudeCodeStatusLine${reset}"
+        update_line="\n${dim}Update available: ${latest_tag} → Tell Claude: \"Find my installed status bar and update it\"${reset}"
     fi
 fi
 

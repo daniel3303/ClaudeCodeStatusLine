@@ -457,7 +457,7 @@ if ($versionData) {
         $vcParsed = if ($versionData -is [string]) { $versionData | ConvertFrom-Json } else { $versionData }
         $latestTag = $vcParsed.tag_name
         if ($latestTag -and (Test-VersionGreaterThan $latestTag $VERSION)) {
-            $updateLine = "`n${dim}Update available: ${latestTag} → https://github.com/daniel3303/ClaudeCodeStatusLine${reset}"
+            $updateLine = "`n${dim}Update available: ${latestTag} → Tell Claude: `"Find my installed status bar and update it`"${reset}"
         }
     } catch {}
 }
