@@ -23,13 +23,11 @@ Usage percentages are color-coded: green (<50%) → yellow (≥50%) → orange (
 
 ## Installation
 
-The canonical install procedure — pick the right script for your OS, place it, wire up `settings.json` — lives in **[INSTALL.md](INSTALL.md)**. The one-line prompt below delegates that to Claude Code for you.
-
 Ask Claude Code:
 
 > Clone https://github.com/daniel3303/ClaudeCodeStatusLine to `~/.claude/statusline/` (or `%USERPROFILE%\.claude\statusline\` on Windows) and configure it as my status bar by following its INSTALL.md.
 
-Claude will clone the repo to that path, pick the right script for your OS, and update `settings.json`.
+Claude will clone the repo to that path, pick the right script for your OS, and update `settings.json`. Full step-by-step instructions Claude follows live in [INSTALL.md](INSTALL.md).
 
 Restart Claude Code after Claude saves the configuration.
 
