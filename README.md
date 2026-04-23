@@ -23,8 +23,6 @@ Usage percentages are color-coded: green (<50%) → yellow (≥50%) → orange (
 
 ## Installation
 
-### Recommended: clone and let Claude configure it
-
 Ask Claude Code:
 
 > Clone https://github.com/daniel3303/ClaudeCodeStatusLine to `~/.claude/statusline/` (or `%USERPROFILE%\.claude\statusline\` on Windows) and configure it as my status bar by following its INSTALL.md.
