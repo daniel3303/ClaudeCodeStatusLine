@@ -333,8 +333,8 @@ format_reset_time() {
             formatted=$(date -j -r "$epoch" +"%H:%M" 2>/dev/null)
             ;;
         datetime)
-            formatted=$(date -d "@$epoch" +"%b %-d, %H:%M" 2>/dev/null) || \
-            formatted=$(date -j -r "$epoch" +"%b %-d, %H:%M" 2>/dev/null)
+            formatted=$(date -d "@$epoch" +"%a %b %-d, %H:%M" 2>/dev/null) || \
+            formatted=$(date -j -r "$epoch" +"%a %b %-d, %H:%M" 2>/dev/null)
             ;;
         *)
             formatted=$(date -d "@$epoch" +"%b %-d" 2>/dev/null) || \
@@ -387,7 +387,7 @@ if $effective_builtin; then
         seven_day_color=$(usage_color "$seven_day_pct")
         out+="${sep}${white}7d${reset} ${seven_day_color}${seven_day_pct}%${reset}"
         if [ -n "$builtin_seven_day_reset" ] && [ "$builtin_seven_day_reset" != "null" ]; then
-            seven_day_reset=$(date -j -r "$builtin_seven_day_reset" +"%b %-d, %H:%M" 2>/dev/null || date -d "@$builtin_seven_day_reset" +"%b %-d, %H:%M" 2>/dev/null)
+            seven_day_reset=$(date -j -r "$builtin_seven_day_reset" +"%a %b %-d, %H:%M" 2>/dev/null || date -d "@$builtin_seven_day_reset" +"%a %b %-d, %H:%M" 2>/dev/null)
             [ -n "$seven_day_reset" ] && out+=" ${dim}@${seven_day_reset}${reset}"
         fi
     fi
