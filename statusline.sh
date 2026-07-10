@@ -52,6 +52,29 @@ usage_color() {
     fi
 }
 
+# Format an epoch as a reset time, honoring STATUSLINE_TIME_FORMAT.
+# style: "time" (HH:MM), "datetime" (Day Mon D, HH:MM), or "date" (Mon D).
+# Defaults to the existing 24-hour behavior; "12h" gives lowercase am/pm.
+# Uses only portable strftime specifiers (%I/%p) so it works with both GNU
+# date (-d) and BSD/macOS date (-j -r); 12h output is then normalized to a
+# lowercase am/pm with no leading-zero hour for a consistent look everywhere.
+format_epoch() {
+    local epoch="$1" style="$2" fmt out
+    case "$style:${STATUSLINE_TIME_FORMAT:-24h}" in
+        time:12h)     fmt="%I:%M%p" ;;
+        datetime:12h) fmt="%a %b %-d, %I:%M%p" ;;
+        datetime:*)   fmt="%a %b %-d, %H:%M" ;;
+        date:*)       fmt="%b %-d" ;;
+        *)            fmt="%H:%M" ;;
+    esac
+    out=$(date -d "@$epoch" +"$fmt" 2>/dev/null) || out=$(date -j -r "$epoch" +"$fmt" 2>/dev/null)
+    case "$style:${STATUSLINE_TIME_FORMAT:-24h}" in
+        date:*) : ;;
+        *:12h) out=$(printf '%s' "$out" | sed -e 's/\(^\|, \)0/\1/' -e 's/AM/am/' -e 's/PM/pm/') ;;
+    esac
+    [ -n "$out" ] && printf '%s\n' "$out"
+}
+
 # Resolve config directory: CLAUDE_CONFIG_DIR (set by alias) or default ~/.claude
 claude_config_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 
@@ -346,27 +369,12 @@ format_reset_time() {
     epoch=$(iso_to_epoch "$iso_str")
     [ -z "$epoch" ] && return
 
-    # Format based on style
-    # Try GNU date first (Linux), then BSD date (macOS)
-    # Previous implementation piped BSD date through sed/tr, which always returned
-    # exit code 0 from the last pipe stage, preventing the GNU date fallback from
-    # ever executing on Linux.
-    local formatted=""
+    # Format based on style. The "time"/"datetime" styles honor
+    # STATUSLINE_TIME_FORMAT; anything else falls back to a bare date.
     case "$style" in
-        time)
-            formatted=$(date -d "@$epoch" +"%H:%M" 2>/dev/null) || \
-            formatted=$(date -j -r "$epoch" +"%H:%M" 2>/dev/null)
-            ;;
-        datetime)
-            formatted=$(date -d "@$epoch" +"%a %b %-d, %H:%M" 2>/dev/null) || \
-            formatted=$(date -j -r "$epoch" +"%a %b %-d, %H:%M" 2>/dev/null)
-            ;;
-        *)
-            formatted=$(date -d "@$epoch" +"%b %-d" 2>/dev/null) || \
-            formatted=$(date -j -r "$epoch" +"%b %-d" 2>/dev/null)
-            ;;
+        time|datetime) format_epoch "$epoch" "$style" ;;
+        *)             format_epoch "$epoch" "date" ;;
     esac
-    [ -n "$formatted" ] && echo "$formatted"
 }
 
 sep=" ${dim}|${reset} "
@@ -402,7 +410,7 @@ if $effective_builtin; then
         five_hour_color=$(usage_color "$five_hour_pct")
         out+="${sep}${white}5h${reset} ${five_hour_color}${five_hour_pct}%${reset}"
         if [ -n "$builtin_five_hour_reset" ] && [ "$builtin_five_hour_reset" != "null" ]; then
-            five_hour_reset=$(date -j -r "$builtin_five_hour_reset" +"%H:%M" 2>/dev/null || date -d "@$builtin_five_hour_reset" +"%H:%M" 2>/dev/null)
+            five_hour_reset=$(format_epoch "$builtin_five_hour_reset" time)
             [ -n "$five_hour_reset" ] && out+=" ${dim}@${five_hour_reset}${reset}"
         fi
     fi
@@ -412,7 +420,7 @@ if $effective_builtin; then
         seven_day_color=$(usage_color "$seven_day_pct")
         out+="${sep}${white}7d${reset} ${seven_day_color}${seven_day_pct}%${reset}"
         if [ -n "$builtin_seven_day_reset" ] && [ "$builtin_seven_day_reset" != "null" ]; then
-            seven_day_reset=$(date -j -r "$builtin_seven_day_reset" +"%a %b %-d, %H:%M" 2>/dev/null || date -d "@$builtin_seven_day_reset" +"%a %b %-d, %H:%M" 2>/dev/null)
+            seven_day_reset=$(format_epoch "$builtin_seven_day_reset" datetime)
             [ -n "$seven_day_reset" ] && out+=" ${dim}@${seven_day_reset}${reset}"
         fi
     fi

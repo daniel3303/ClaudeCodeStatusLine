@@ -66,6 +66,14 @@ To disable the update check entirely (no network calls):
 export STATUSLINE_CHECK_UPDATES=false
 ```
 
+## Time Format
+
+Reset times are displayed in 24-hour format by default (e.g. `14:30`). To switch to 12-hour format with AM/PM (e.g. `2:30pm`):
+
+```bash
+export STATUSLINE_TIME_FORMAT=12h
+```
+
 ## License
 
 MIT
