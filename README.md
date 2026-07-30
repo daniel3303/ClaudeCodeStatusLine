@@ -19,6 +19,8 @@ A custom status line for [Claude Code](https://claude.com/claude-code) that disp
 | **Extra** | Extra usage credits spent / limit (if enabled) |
 | **Update** | Appears when a new version is available (checked every 24h) |
 
+A second line below shows the full path of the current working directory.
+
 Usage percentages are color-coded: green (<50%) → yellow (≥50%) → orange (≥70%) → red (≥90%).
 
 ## Installation

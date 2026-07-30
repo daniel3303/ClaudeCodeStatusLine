@@ -1,6 +1,7 @@
 #!/bin/bash
 # Source: https://github.com/daniel3303/ClaudeCodeStatusLine
-# Single line: Model | tokens | %used | %remain | think | 5h bar @reset | 7d bar @reset | extra
+# Line 1: Model | tokens | %used | %remain | think | 5h bar @reset | 7d bar @reset | extra
+# Line 2: full current working directory
 
 set -f  # disable globbing
 VERSION="1.4.4"
@@ -515,6 +516,9 @@ if [ -n "$cli_version" ]; then
 fi
 
 # Output
-printf "%b" "$out$update_line"
+printf "%b" "$out"
+# Second line: full working directory (printed with %s so backslashes stay literal)
+[ -n "$cwd" ] && printf "%b%s%b" "\n${dim}" "$cwd" "${reset}"
+printf "%b" "$update_line"
 
 exit 0

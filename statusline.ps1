@@ -1,7 +1,8 @@
 # Source: https://github.com/daniel3303/ClaudeCodeStatusLine
 
 $VERSION = "1.4.4"
-# Single line: Model | tokens | %used | %remain | think | 5h bar @reset | 7d bar @reset | extra
+# Line 1: Model | tokens | %used | %remain | think | 5h bar @reset | 7d bar @reset | extra
+# Line 2: full current working directory
 
 # Read input from stdin
 $input = @($Input) -join "`n"
@@ -495,7 +496,11 @@ if ($cliVersion) {
     $out += " ${dim}|${reset} ${orange}v${cliVersion}${reset}"
 }
 
+# Second line: full working directory
+$cwdLine = ""
+if ($cwd) { $cwdLine = "`n${dim}${cwd}${reset}" }
+
 # Output
-Write-Host -NoNewline "$out$updateLine"
+Write-Host -NoNewline "$out$cwdLine$updateLine"
 
 exit 0
