@@ -14,12 +14,14 @@ A custom status line for [Claude Code](https://claude.com/claude-code) that disp
 | **CWD@Branch** | Current folder name, git branch, and file changes (+/-) |
 | **Tokens** | Used / total context window tokens (% used) |
 | **Effort** | Reasoning effort level (low, med, high, xhigh) |
-| **5h** | 5-hour rate limit usage percentage and reset time |
-| **7d** | 7-day rate limit usage percentage and reset time |
+| **5h** | 5-hour rate limit usage percentage, pace, and reset time |
+| **7d** | 7-day rate limit usage percentage, pace, and reset time |
 | **Extra** | Extra usage credits spent / limit (if enabled) |
 | **Update** | Appears when a new version is available (checked every 24h) |
 
 Usage percentages are color-coded: green (<50%) → yellow (≥50%) → orange (≥70%) → red (≥90%).
+
+Pace compares usage with how much of the window has elapsed: `5h 30%(20%)` means usage is running 20% ahead of the clock (on track to hit the limit before the reset), and `(-15%)` means 15% behind it. It is omitted when it can't be computed, e.g. right at the start of a window.
 
 ## Installation
 

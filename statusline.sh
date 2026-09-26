@@ -52,6 +52,21 @@ usage_color() {
     fi
 }
 
+# Pace vs the window: "(23%)" = used 23% faster than time has elapsed toward
+# the reset, "(-2%)" = 2% slower. Prints nothing when it is undefined: usage
+# outside 0..100, reset not in (now, now + window], or no time elapsed yet.
+# Args: used_pct reset_epoch window_seconds
+pace_suffix() {
+    [ -n "$1" ] && [ -n "$2" ] && [ "$2" != "null" ] || return 0
+    awk -v used="$1" -v reset="$2" -v window="$3" -v now="$(date +%s)" 'BEGIN {
+        left = reset - now
+        if (used < 0 || used > 100 || left <= 0 || left > window) exit
+        elapsed = (window - left) / window
+        if (elapsed <= 0) exit
+        printf "(%.0f%%)", (used / 100 / elapsed - 1) * 100
+    }'
+}
+
 # Resolve config directory: CLAUDE_CONFIG_DIR (set by alias) or default ~/.claude
 claude_config_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 
@@ -403,7 +418,7 @@ if $effective_builtin; then
         out+="${sep}${white}5h${reset} ${five_hour_color}${five_hour_pct}%${reset}"
         if [ -n "$builtin_five_hour_reset" ] && [ "$builtin_five_hour_reset" != "null" ]; then
             five_hour_reset=$(date -j -r "$builtin_five_hour_reset" +"%H:%M" 2>/dev/null || date -d "@$builtin_five_hour_reset" +"%H:%M" 2>/dev/null)
-            [ -n "$five_hour_reset" ] && out+=" ${dim}@${five_hour_reset}${reset}"
+            [ -n "$five_hour_reset" ] && out+="$(pace_suffix "$builtin_five_hour_pct" "$builtin_five_hour_reset" 18000) ${dim}@${five_hour_reset}${reset}"
         fi
     fi
 
@@ -413,7 +428,7 @@ if $effective_builtin; then
         out+="${sep}${white}7d${reset} ${seven_day_color}${seven_day_pct}%${reset}"
         if [ -n "$builtin_seven_day_reset" ] && [ "$builtin_seven_day_reset" != "null" ]; then
             seven_day_reset=$(date -j -r "$builtin_seven_day_reset" +"%a %b %-d, %H:%M" 2>/dev/null || date -d "@$builtin_seven_day_reset" +"%a %b %-d, %H:%M" 2>/dev/null)
-            [ -n "$seven_day_reset" ] && out+=" ${dim}@${seven_day_reset}${reset}"
+            [ -n "$seven_day_reset" ] && out+="$(pace_suffix "$builtin_seven_day_pct" "$builtin_seven_day_reset" 604800) ${dim}@${seven_day_reset}${reset}"
         fi
     fi
 
@@ -450,7 +465,7 @@ elif [ -n "$usage_data" ] && echo "$usage_data" | jq -e '.five_hour' >/dev/null 
     five_hour_color=$(usage_color "$five_hour_pct")
 
     out+="${sep}${white}5h${reset} ${five_hour_color}${five_hour_pct}%${reset}"
-    [ -n "$five_hour_reset" ] && out+=" ${dim}@${five_hour_reset}${reset}"
+    [ -n "$five_hour_reset" ] && out+="$(pace_suffix "$five_hour_pct" "$(iso_to_epoch "$five_hour_reset_iso")" 18000) ${dim}@${five_hour_reset}${reset}"
 
     # ---- 7-day (weekly) ----
     seven_day_pct=$(echo "$usage_data" | jq -r '.seven_day.utilization // 0' | awk '{printf "%.0f", $1}')
@@ -459,7 +474,7 @@ elif [ -n "$usage_data" ] && echo "$usage_data" | jq -e '.five_hour' >/dev/null 
     seven_day_color=$(usage_color "$seven_day_pct")
 
     out+="${sep}${white}7d${reset} ${seven_day_color}${seven_day_pct}%${reset}"
-    [ -n "$seven_day_reset" ] && out+=" ${dim}@${seven_day_reset}${reset}"
+    [ -n "$seven_day_reset" ] && out+="$(pace_suffix "$seven_day_pct" "$(iso_to_epoch "$seven_day_reset_iso")" 604800) ${dim}@${seven_day_reset}${reset}"
 
     render_extra_usage "$usage_data"
 else
