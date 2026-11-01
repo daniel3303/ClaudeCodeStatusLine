@@ -10,10 +10,9 @@ A custom status line for [Claude Code](https://claude.com/claude-code) that disp
 
 | Segment | Description |
 |---------|-------------|
-| **Model** | Current model name (e.g., Opus 4.7) |
+| **Model** | Current model name with reasoning effort in parentheses (e.g., Opus 4.7 (high)); effort is low, med, high, xhigh or max |
 | **CWD@Branch** | Current folder name, git branch, and file changes (+/-) |
 | **Tokens** | Used / total context window tokens (% used) |
-| **Effort** | Reasoning effort level (low, med, high, xhigh) |
 | **5h** | 5-hour rate limit usage percentage and reset time |
 | **7d** | 7-day rate limit usage percentage and reset time |
 | **Extra** | Extra usage credits spent / limit (if enabled) |
