@@ -15,6 +15,7 @@ A custom status line for [Claude Code](https://claude.com/claude-code) that disp
 | **Tokens** | Used / total context window tokens (% used) |
 | **5h** | 5-hour rate limit usage percentage and reset time |
 | **7d** | 7-day rate limit usage percentage and reset time |
+| **Per-model** | Per-model weekly limit usage, e.g. Fable (only when the usage API reports one) |
 | **Extra** | Extra usage credits spent / limit (if enabled) |
 | **Update** | Appears when a new version is available (checked every 24h) |
 

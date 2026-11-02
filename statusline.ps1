@@ -388,34 +388,6 @@ if ($effectiveBuiltin) {
 
     # Render extra_usage from API cache (stdin rate_limits doesn't expose it)
     $out += Format-ExtraUsage $parsedUsage
-
-    # Cache builtin values so they're available as fallback when API is unavailable.
-    # Convert epoch resets_at to ISO 8601 for compatibility with the API-format cache parser.
-    # Use invariant culture to avoid locale-dependent decimal separators in JSON.
-    # Preserve extra_usage from prior API response so we don't clobber it.
-    $inv = [System.Globalization.CultureInfo]::InvariantCulture
-    $fhVal = if ($builtinFiveHourPct) { ([double]$builtinFiveHourPct).ToString($inv) } else { "0" }
-    $sdVal = if ($builtinSevenDayPct) { ([double]$builtinSevenDayPct).ToString($inv) } else { "0" }
-    $fhResetJson = "null"
-    if ($null -ne $builtinFiveHourReset -and "$builtinFiveHourReset" -ne "null" -and "$builtinFiveHourReset" -ne "0") {
-        try {
-            $fhResetJson = '"' + [DateTimeOffset]::FromUnixTimeSeconds([long]$builtinFiveHourReset).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'") + '"'
-        } catch {}
-    }
-    $sdResetJson = "null"
-    if ($null -ne $builtinSevenDayReset -and "$builtinSevenDayReset" -ne "null" -and "$builtinSevenDayReset" -ne "0") {
-        try {
-            $sdResetJson = '"' + [DateTimeOffset]::FromUnixTimeSeconds([long]$builtinSevenDayReset).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'") + '"'
-        } catch {}
-    }
-    $extraJson = "null"
-    if ($parsedUsage -and $parsedUsage.extra_usage) {
-        try {
-            $extraJson = $parsedUsage.extra_usage | ConvertTo-Json -Depth 5 -Compress
-        } catch {}
-    }
-    $fallbackJson = "{`"five_hour`":{`"utilization`":$fhVal,`"resets_at`":$fhResetJson},`"seven_day`":{`"utilization`":$sdVal,`"resets_at`":$sdResetJson},`"extra_usage`":$extraJson}"
-    $fallbackJson | Set-Content $cacheFile -Force
 } elseif ($parsedUsage) {
     # ---- Fall back: API-fetched usage data ----
     try {
