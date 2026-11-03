@@ -418,28 +418,6 @@ if $effective_builtin; then
 
     # Render extra_usage from API cache (stdin rate_limits doesn't expose it)
     render_extra_usage "$usage_data"
-
-    # Cache builtin values so they're available as fallback when API is unavailable.
-    # Convert epoch resets_at to ISO 8601 for compatibility with the API-format cache parser.
-    # Preserve extra_usage from prior API response so we don't clobber it.
-    _fh_reset_json="null"
-    if [ -n "$builtin_five_hour_reset" ] && [ "$builtin_five_hour_reset" != "null" ] && [ "$builtin_five_hour_reset" != "0" ]; then
-        _fh_iso=$(date -u -r "$builtin_five_hour_reset" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || \
-                  date -u -d "@$builtin_five_hour_reset" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null)
-        [ -n "$_fh_iso" ] && _fh_reset_json="\"$_fh_iso\""
-    fi
-    _sd_reset_json="null"
-    if [ -n "$builtin_seven_day_reset" ] && [ "$builtin_seven_day_reset" != "null" ] && [ "$builtin_seven_day_reset" != "0" ]; then
-        _sd_iso=$(date -u -r "$builtin_seven_day_reset" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || \
-                  date -u -d "@$builtin_seven_day_reset" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null)
-        [ -n "$_sd_iso" ] && _sd_reset_json="\"$_sd_iso\""
-    fi
-    _extra_json=$(echo "$usage_data" | jq -c '.extra_usage // null' 2>/dev/null)
-    [ -z "$_extra_json" ] && _extra_json="null"
-    printf '{"five_hour":{"utilization":%s,"resets_at":%s},"seven_day":{"utilization":%s,"resets_at":%s},"extra_usage":%s}' \
-        "${builtin_five_hour_pct:-0}" "$_fh_reset_json" \
-        "${builtin_seven_day_pct:-0}" "$_sd_reset_json" \
-        "$_extra_json" > "$cache_file" 2>/dev/null
 elif [ -n "$usage_data" ] && echo "$usage_data" | jq -e '.five_hour' >/dev/null 2>&1; then
     # ---- Fall back: API-fetched usage data ----
     # ---- 5-hour (current) ----
