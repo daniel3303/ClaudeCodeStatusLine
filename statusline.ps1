@@ -3,6 +3,39 @@
 $VERSION = "1.4.5"
 # Single line: Model (effort) | dir@branch | tokens (%used) | 5h @reset | 7d @reset | extra | CLI version
 
+# On Windows, a child process is created suspended and resumed by its parent right after.
+# Claude Code cancels an in-flight status line when a new update arrives, so a parent killed
+# between those two steps leaves the child suspended forever, holding its memory. Running this
+# script inside a kill-on-close job object makes Windows terminate its children when it dies.
+# The job handle is deliberately never closed: it must live exactly as long as this process.
+function Enable-KillChildrenOnExit {
+    try {
+        if ($PSVersionTable.PSVersion.Major -ge 6 -and -not $IsWindows) { return }
+        $assembly = [Reflection.Emit.AssemblyBuilder]::DefineDynamicAssembly((New-Object Reflection.AssemblyName 'StatusLineJob'), 'Run')
+        $type = $assembly.DefineDynamicModule('StatusLineJob').DefineType('StatusLineJob.Native', 'Public,Class')
+        $attributes = [Reflection.MethodAttributes]'Public,Static,PinvokeImpl'
+        foreach ($method in @(
+                @('CreateJobObjectW', [IntPtr], @([IntPtr], [IntPtr])),
+                @('SetInformationJobObject', [bool], @([IntPtr], [int], [byte[]], [int])),
+                @('AssignProcessToJobObject', [bool], @([IntPtr], [IntPtr]))
+            )) {
+            $pinvoke = $type.DefinePInvokeMethod($method[0], 'kernel32.dll', $attributes, 'Standard', $method[1], $method[2], 'Winapi', 'Unicode')
+            # Without PreserveSig the return value would be treated as an HRESULT and lost
+            $pinvoke.SetImplementationFlags($pinvoke.GetMethodImplementationFlags() -bor [Reflection.MethodImplAttributes]::PreserveSig)
+        }
+        $native = $type.CreateType()
+        $job = $native::CreateJobObjectW([IntPtr]::Zero, [IntPtr]::Zero)
+        if ($job -eq [IntPtr]::Zero) { return }
+        # JOBOBJECT_EXTENDED_LIMIT_INFORMATION: LimitFlags sits at offset 16 on both 32 and 64 bit
+        $limits = New-Object byte[] $(if ([IntPtr]::Size -eq 8) { 144 } else { 112 })
+        $limits[17] = 0x20  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000, little-endian
+        if ($native::SetInformationJobObject($job, 9, $limits, $limits.Length)) {
+            [void]$native::AssignProcessToJobObject($job, [Diagnostics.Process]::GetCurrentProcess().Handle)
+        }
+    } catch {}
+}
+Enable-KillChildrenOnExit
+
 # Read input from stdin
 $input = @($Input) -join "`n"
 
@@ -160,14 +193,14 @@ if ($cwd) {
     $displayDir = Split-Path $cwd -Leaf
     $gitBranch = $null
     try {
-        $gitBranch = git -C $cwd rev-parse --abbrev-ref HEAD 2>$null
+        $gitBranch = git --no-optional-locks -C $cwd rev-parse --abbrev-ref HEAD 2>$null
     } catch {}
     $out += " ${dim}|${reset} "
     $out += "${cyan}${displayDir}${reset}"
     if ($gitBranch) {
         $out += "${dim}@${reset}${green}${gitBranch}${reset}"
         try {
-            $numstat = git -C $cwd diff --numstat 2>$null
+            $numstat = git --no-optional-locks -C $cwd diff --numstat 2>$null
             if ($numstat) {
                 $added = 0; $deleted = 0
                 foreach ($line in $numstat) {
